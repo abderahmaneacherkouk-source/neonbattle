@@ -240,5 +240,34 @@ fsBtn.onclick=()=>{
   }catch(e){console.warn('Plein écran non disponible :',e.message);}
 };
 </script>
+<!-- MODE ONLINE FIREBASE -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "TA_CLE_ICI",
+    authDomain: "ton-projet.firebaseapp.com",
+    databaseURL: "https://ton-projet-default-rtdb.firebaseio.com",
+    projectId: "ton-projet",
+    storageBucket: "ton-projet.appspot.com",
+    messagingSenderId: "ID",
+    appId: "APP_ID"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  function updatePlayer(id, x, y) {
+    set(ref(db, 'players/' + id), { x, y });
+  }
+
+  onValue(ref(db, 'players/'), (snapshot) => {
+    const players = snapshot.val();
+    console.log('Joueurs connectés :', players);
+  });
+</script>
+
 </body>
 </html>
+

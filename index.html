@@ -240,34 +240,56 @@ fsBtn.onclick=()=>{
   }catch(e){console.warn('Plein écran non disponible :',e.message);}
 };
 </script>
-<!-- MODE ONLINE FIREBASE -->
+<!-- MODE ONLINE SUPABASE -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-  const firebaseConfig = {
-    apiKey: "TA_CLE_ICI",
-    authDomain: "ton-projet.firebaseapp.com",
-    databaseURL: "https://ton-projet-default-rtdb.firebaseio.com",
-    projectId: "ton-projet",
-    storageBucket: "ton-projet.appspot.com",
-    messagingSenderId: "ID",
-    appId: "APP_ID"
-  };
+  // ⚙️ Tes identifiants Supabase :
+  const supabaseUrl = "https://cyssrstmppwcaukqkkdvo.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5c3Nyc3RtcHB3Y2F1cWtrZHZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMzA4MzQsImV4cCI6MjA3NjgwNjgzNH0.uoQ3NI6bS2NAoOSlguljRsukDpHowyd02QJ6zKajAfM";
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+  const db = createClient(supabaseUrl, supabaseKey);
 
-  function updatePlayer(id, x, y) {
-    set(ref(db, 'players/' + id), { x, y });
+  // 🔹 Exemple : sauvegarder un joueur
+  async function updatePlayer(id, x, y, health = 100) {
+    const { error } = await db.from('players').upsert([{ id, x, y, health }]);
+    if (error) console.error("Erreur Supabase:", error);
   }
 
-  onValue(ref(db, 'players/'), (snapshot) => {
-    const players = snapshot.val();
-    console.log('Joueurs connectés :', players);
-  });
+  // 🔹 Exemple : écouter les changements en direct
+  db.channel('players')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, payload => {
+      console.log("Mise à jour Supabase :", payload.new);
+    })
+    .subscribe();
+</script>
+<!-- MODE ONLINE SUPABASE -->
+<script type="module">
+  import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
+
+  // ⚙️ Tes identifiants Supabase :
+  const supabaseUrl = "https://cyssrstmppwcaukqkkdvo.supabase.co";
+  const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5c3Nyc3RtcHB3Y2F1cWtrZHZvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEyMzA4MzQsImV4cCI6MjA3NjgwNjgzNH0.uoQ3NI6bS2NAoOSlguljRsukDpHowyd02QJ6zKajAfM";
+
+  const db = createClient(supabaseUrl, supabaseKey);
+
+  // 🔹 Exemple : sauvegarder un joueur
+  async function updatePlayer(id, x, y, health = 100) {
+    const { error } = await db.from('players').upsert([{ id, x, y, health }]);
+    if (error) console.error("Erreur Supabase:", error);
+  }
+
+  // 🔹 Exemple : écouter les changements en direct
+  db.channel('players')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, payload => {
+      console.log("Mise à jour Supabase :", payload.new);
+    })
+    .subscribe();
+</script>
+
 </script>
 
 </body>
 </html>
+
 

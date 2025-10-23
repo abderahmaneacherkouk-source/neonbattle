@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Duel 2D</title>
+<style>
+  body {
+    margin:0;
+    overflow:hidden;
+    background:radial-gradient(circle at center,#0ea5e9 0%,#0b1022 70%);
+    color:white;
+    font-family:sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+  }
+
+  #menu,#difficulty,#win {
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    width:65%;
+    padding:40px;
+    border-radius:20px;
+    background:radial-gradient(circle at center, rgba(56,189,248,0.3) 0%, rgba(11,16,34,0.95) 80%),
+                repeating-linear-gradient(45deg, rgba(59,130,246,0.15) 0, rgba(59,130,246,0.15) 2px, transparent 2px, transparent 6px);
+    box-shadow:0 0 50px rgba(56,189,248,0.4) inset,0 0 40px rgba(56,189,248,0.3);
+    border:1px solid rgba(56,189,248,0.2);
+  }
+  #menu.active,#difficulty.active,#win.active{display:flex;}
+
+  button {
+    padding:12px 24px;
+    margin:8px;
+    font-size:18px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    transition:0.3s;
+    background:#1e40af;
+    color:white;
+    box-shadow:0 0 10px rgba(255,255,255,0.2);
+  }
+  button:hover{background:#3b82f6;transform:scale(1.05);}
+
+  .title {font-size:40px;font-weight:bold;text-shadow:0 0 20px #38bdf8,0 0 40px #38bdf8;}
+  .subtitle {font-size:20px;opacity:0.8;margin-top:-10px;}
+
+  #gameContainer {
+    display:none;
+    position:relative;
+    width:65%;
+    aspect-ratio:16/9;
+    border-radius:20px;
+    overflow:hidden;
+    background:radial-gradient(circle at center, rgba(56,189,248,0.3) 0%, rgba(11,16,34,0.95) 80%),
+                repeating-linear-gradient(45deg, rgba(59,130,246,0.15) 0, rgba(59,130,246,0.15) 2px, transparent 2px, transparent 6px);
+    box-shadow:0 0 50px rgba(56,189,248,0.4) inset,0 0 40px rgba(56,189,248,0.3);
+    border:1px solid rgba(56,189,248,0.2);
+  }
+
+  #gameCanvas {
+    width:100%;
+    height:100%;
+    display:block;
+    background:radial-gradient(circle at center,#0ea5e9 0%,#0b1022 70%);
+  }
+
+  #fullscreenBtn {
+    position:absolute;
+    bottom:20px;
+    right:20px;
+    width:50px;
+    height:50px;
+    border:2px solid #fff;
+    border-radius:8px;
+    background:transparent;
+    cursor:pointer;
+    transition:0.3s;
+  }
+  #fullscreenBtn::before,
+  #fullscreenBtn::after {
+    content:'';
+    position:absolute;
+    width:16px;
+    height:16px;
+    border:3px solid #fff;
+  }
+  #fullscreenBtn::before {
+    top:6px;
+    left:6px;
+    border-right:none;
+    border-bottom:none;
+  }
+  #fullscreenBtn::after {
+    bottom:6px;
+    right:6px;
+    border-left:none;
+    border-top:none;
+  }
+  #fullscreenBtn:hover {
+    filter:drop-shadow(0 0 10px #a855f7);
+    transform:scale(1.1);
+  }
+</style>
+</head>
+<body>
+<div id="menu" class="active">
+  <h1 class="title">⚡ Neon Duel</h1>
+  <p class="subtitle">Choisis ton mode et affronte ton adversaire !</p>
+  <button id="playBtn">▶ Jouer</button>
+  <button id="toggleBot">🤖 Mode Bot: ON</button>
+</div>
+<div id="difficulty">
+  <h2>Choisis ton niveau de difficulté</h2>
+  <button id="easy">🌿 Facile</button>
+  <button id="medium">🔥 Moyen</button>
+  <button id="hard">💀 Difficile</button>
+</div>
+<div id="win">
+  <h2 id="winText" class="title"></h2>
+  <button id="replay">🔁 Rejouer</button>
+  <button id="menuBtn">🏠 Menu principal</button>
+</div>
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <button id="fullscreenBtn" title="Plein écran"></button>
+</div>
+<script>
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const randRange=(a,b)=>a+Math.random()*(b-a);
+const WORLD={w:960,h:540,ground:460};
+const GRAVITY=0.9,FRICTION=0.78,JUMP_VEL=-16,MOVE_ACC=2.3,ATTACK_COOLDOWN=380,ATTACK_DURATION=160;
+let botMode=true,difficulty='medium';
+let winner="",hitSpark=null;
+const baseFighter=(x,facing=1,color="#4f46e5")=>({x,y:WORLD.ground,vx:0,vy:0,w:54,h:78,onGround:true,color,facing,punching:false,lastPunch:-9999,health:100});
+let p1,p2;
+const keys={};
+const cvs=document.getElementById("gameCanvas"),ctx=cvs.getContext("2d");
+cvs.width=WORLD.w;cvs.height=WORLD.h;
+window.addEventListener('keydown',e=>keys[e.key]=true);
+window.addEventListener('keyup',e=>keys[e.key]=false);
+
+function startGame(){
+  document.getElementById('menu').classList.remove('active');
+  document.getElementById('difficulty').classList.remove('active');
+  document.getElementById('win').classList.remove('active');
+  document.getElementById('gameContainer').style.display='block';
+  resetGame();
+  loop();
+}
+function resetGame(){p1=baseFighter(160,1,"#22c55e");p2=baseFighter(WORLD.w-214,-1,"#ef4444");winner="";hitSpark=null;}
+function showWinScreen(){document.getElementById('gameContainer').style.display='none';document.getElementById('win').classList.add('active');document.getElementById('winText').textContent=winner+' gagne !';}
+function logicFor(me,other,index){
+  if(index===1){
+    if(keys['a']||keys['q'])me.vx-=MOVE_ACC;
+    if(keys['d'])me.vx+=MOVE_ACC;
+    if((keys['w']||keys['z']||keys[' '])&&me.onGround){me.vy=JUMP_VEL;me.onGround=false;}
+    if(keys['f'])punch(me,other,index);
+  }
+  if(index===2&&!botMode){
+    if(keys['ArrowLeft'])me.vx-=MOVE_ACC;
+    if(keys['ArrowRight'])me.vx+=MOVE_ACC;
+    if(keys['ArrowUp']&&me.onGround){me.vy=JUMP_VEL;me.onGround=false;}
+    if(keys['/']||keys['?'])punch(me,other,index);
+  }
+  me.vy+=GRAVITY;me.x+=me.vx;me.y+=me.vy;
+  const leftBound=0,rightBound=WORLD.w-me.w;
+  if(me.x<leftBound){me.x=leftBound;me.vx=0;}
+  if(me.x>rightBound){me.x=rightBound;me.vx=0;}
+  if(me.y>=WORLD.ground){me.y=WORLD.ground;me.vy=0;me.onGround=true;}
+  if(me.onGround)me.vx*=FRICTION;
+}
+function botAI(bot,target){
+  const dist=target.x-bot.x;
+  let speed=0.6,punchChance=0.03;
+  if(difficulty==='easy'){speed=0.4;punchChance=0.01;}
+  if(difficulty==='hard'){speed=0.8;punchChance=0.05;}
+  if(Math.abs(dist)>90)bot.vx+=Math.sign(dist)*speed;else if(Math.random()<punchChance)punch(bot,target,2);
+  if(Math.random()<(difficulty==='hard'?0.01:0.004)&&bot.onGround)bot.vy=JUMP_VEL;
+}
+const getHurtbox=p=>({x:p.x,y:p.y-p.h,w:p.w,h:p.h});
+const getHitbox=p=>({x:p.facing===1?p.x+p.w+4:p.x-34,y:p.y-p.h+28,w:30,h:22});
+const rectsOverlap=(a,b)=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
+function punch(me,other,index){
+  const now=performance.now();if(now-me.lastPunch<ATTACK_COOLDOWN)return;
+  me.punching=true;me.lastPunch=now;setTimeout(()=>me.punching=false,ATTACK_DURATION);
+  const hb=getHitbox(me);
+  if(rectsOverlap(hb,getHurtbox(other))){
+    const dmg=Math.round(randRange(6,12));other.health=clamp(other.health-dmg,0,100);
+    hitSpark={x:other.x+other.w/2,y:other.y-other.h/2,t:now};
+    if(other.health<=0&&!winner){
+      if(index===1) winner='Joueur 1';
+      else if(botMode) winner='Bot';
+      else winner='Joueur 2';
+      setTimeout(showWinScreen,800);
+    }
+  }
+}
+function simulate(){if(!winner){logicFor(p1,p2,1);if(botMode)botAI(p2,p1);logicFor(p2,p1,2);p1.facing=p1.x<p2.x?1:-1;p2.facing=p2.x<p1.x?1:-1;}}
+function draw(){
+  const grd=ctx.createRadialGradient(WORLD.w/2,WORLD.h/2,100,WORLD.w/2,WORLD.h/2,WORLD.h);
+  grd.addColorStop(0,'#0ea5e9');grd.addColorStop(1,'#0b1022');ctx.fillStyle=grd;ctx.fillRect(0,0,WORLD.w,WORLD.h);
+  ctx.strokeStyle='rgba(255,255,255,0.15)';for(let x=0;x<WORLD.w;x+=40){ctx.beginPath();ctx.moveTo(x,WORLD.ground+30);ctx.lineTo(x,WORLD.h);ctx.stroke();}
+  for(let y=WORLD.ground+30;y<WORLD.h;y+=24){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(WORLD.w,y);ctx.stroke();}
+  drawFighter(p1);drawFighter(p2);
+  ctx.fillStyle='#fff';ctx.font='16px sans-serif';ctx.fillText('J1: '+Math.round(p1.health),40,40);ctx.textAlign='right';ctx.fillText((botMode?'Bot':'J2')+': '+Math.round(p2.health),WORLD.w-40,40);ctx.textAlign='left';
+  if(hitSpark&&performance.now()-hitSpark.t<120){const t=1-(performance.now()-hitSpark.t)/120;ctx.save();ctx.translate(hitSpark.x,hitSpark.y);ctx.globalAlpha=t;for(let i=0;i<6;i++){ctx.rotate((Math.PI*2)/6);ctx.fillStyle='#fde047';ctx.fillRect(0,0,10+10*t,2);}ctx.restore();}
+}
+function drawFighter(p){ctx.fillStyle='rgba(0,0,0,0.18)';ctx.beginPath();ctx.ellipse(p.x+p.w/2,WORLD.ground+8,p.w*0.6,10,0,0,Math.PI*2);ctx.fill();ctx.fillStyle=p.color;ctx.fillRect(p.x,p.y-p.h,p.w,p.h);ctx.fillStyle='#fff';ctx.fillRect(p.x+(p.facing===1?p.w-24:0),p.y-p.h-16,24,16);if(p.punching){const hb=getHitbox(p);ctx.fillStyle='#fbbf24';ctx.fillRect(hb.x,hb.y,hb.w,hb.h);}}
+function loop(){simulate();draw();if(!winner)requestAnimationFrame(loop);}
+
+const playBtn=document.getElementById('playBtn');
+playBtn.onclick=()=>{
+  document.getElementById('menu').classList.remove('active');
+  if(botMode) document.getElementById('difficulty').classList.add('active');
+  else startGame();
+};
+
+document.getElementById('easy').onclick=()=>{difficulty='easy';startGame();};
+document.getElementById('medium').onclick=()=>{difficulty='medium';startGame();};
+document.getElementById('hard').onclick=()=>{difficulty='hard';startGame();};
+document.getElementById('replay').onclick=()=>{startGame();};
+document.getElementById('menuBtn').onclick=()=>{document.getElementById('win').classList.remove('active');document.getElementById('menu').classList.add('active');};
+const botBtn=document.getElementById('toggleBot');
+botBtn.onclick=()=>{botMode=!botMode;botBtn.textContent='🤖 Mode Bot: '+(botMode?'ON':'OFF');};
+
+const fsBtn=document.getElementById('fullscreenBtn');
+fsBtn.onclick=()=>{
+  try{
+    if(!document.fullscreenElement){
+      if(document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    }else{
+      if(document.exitFullscreen) document.exitFullscreen();
+    }
+  }catch(e){console.warn('Plein écran non disponible :',e.message);}
+};
+</script>
+</body>
+</html>
